@@ -1,0 +1,61 @@
+{
+  "name": "dash_loading_spinners",
+  "version": "1.0.3",
+  "description": "Fun and funky loading spinners for your Dash apps",
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/glsdown/dash-loading-spinners.git"
+  },
+  "bugs": {
+    "url": "https://github.com/glsdown/dash-loading-spinners/issues"
+  },
+  "homepage": "https://dash-loading-spinners.sproodlebuzz.co.uk/",
+  "main": "build/index.js",
+  "scripts": {
+    "start": "webpack-dev-server --config ./webpack/demo.config.js --hot",
+    "validate-init": "python _validate_init.py",
+    "build:js": "webpack --config ./webpack/config.js --mode production",
+    "build:backends": "dash-generate-components ./src/lib/components dash_loading_spinners -p package-info.json --r-prefix 'dls' --jl-prefix 'dls'",
+    "build": "npm run build:js && npm run build:backends",
+    "build:activated": "npm run build:js && npm run build:backends-activated",
+    "format": "prettier src/**/*.js --write",
+    "lint": "prettier src/**/*.js --list-different"
+  },
+  "author": "Gemma Down <gemmalsdown@icloud.com>",
+  "license": "MIT",
+  "dependencies": {
+    "ramda": "^0.26.1",
+    "react-css-spinners": "^4.0.2",
+    "react-loader-spinner": "^4.0.0",
+    "react-spinners": "^0.11.0"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.5.4",
+    "@babel/plugin-proposal-object-rest-spread": "^7.5.4",
+    "@babel/preset-env": "^7.5.4",
+    "@babel/preset-react": "^7.0.0",
+    "babel-eslint": "^10.0.2",
+    "babel-loader": "^8.0.6",
+    "copyfiles": "^2.1.1",
+    "css-loader": "^3.0.0",
+    "eslint": "^6.0.1",
+    "eslint-config-prettier": "^6.0.0",
+    "eslint-plugin-import": "^2.18.0",
+    "eslint-plugin-react": "^7.14.2",
+    "npm": "^6.1.0",
+    "prettier": "^2.3.2",
+    "prop-types": "^15.7.2",
+    "react": "^16.8.6",
+    "react-docgen": "^4.1.1",
+    "react-dom": "^16.8.6",
+    "style-loader": "^0.23.1",
+    "styled-jsx": "^3.2.1",
+    "webpack": "4.36.1",
+    "webpack-cli": "3.3.6",
+    "webpack-dev-server": "^3.11.2"
+  },
+  "engines": {
+    "node": ">=8.11.0",
+    "npm": ">=6.1.0"
+  }
+}
