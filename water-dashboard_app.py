@@ -21,8 +21,10 @@ def retrieve_tables():
         connection.commit()
     stringValA = 'tuw_'
     stringValB = '_md:'
+    stringValC = 'my_dictionary'
+    stringValD = 'toc_5mm_eq'
     table_list = list(data['table_name'])
-    table_list = [ x for x in table_list if stringValA not in x and stringValB not in x ]
+    table_list = [ x for x in table_list if stringValA not in x and stringValB not in x and stringValC not in x and stringValD not in x ]
     project_tables_dict = extract_project(sorted(table_list))
     return project_tables_dict    
 
@@ -55,6 +57,7 @@ def retrieve_data(project, parameter, start_date, end_date):
     with engine.connect() as connection:
         data_temp = connection.execute(text(sql_query))
         data = pd.DataFrame(data_temp.fetchall())
+        if data.empty: return pd.DataFrame()
         data.columns = data_temp.keys()
         connection.commit()
     data = (
@@ -126,6 +129,7 @@ app.layout = html.Div(
                         dcc.DatePickerRange(
                             id="date-range",
                             disabled=True,
+                            initial_visible_month="2024-01-01"
                         ),
                     )
                 ]
@@ -220,7 +224,7 @@ app.layout = html.Div(
 def get_figure_data_entries(parameter, data, is_parameter_01, date_range_selected, axis):
     return {
                 "x": None if data.empty or not date_range_selected else data["Date"],
-                "y": None if data.empty or not date_range_selected else data["raw"],
+                "y": None if data.empty or not date_range_selected else data["scal"],
                 "name": parameter,
                 "type": "lines",
                 "yaxis": "y1" if axis == "left" else "y2",
@@ -388,6 +392,7 @@ Output("date-range", "min_date_allowed"),
 Output("date-range", "max_date_allowed"),
 Output("date-range", "start_date"),
 Output("date-range", "end_date"),
+Output("date-range", "initial_visible_month"),
 Input("project-picker-1", "value"),
 Input("parameter-picker-1", "value"),
 Input("date-range", "start_date"),
@@ -399,11 +404,11 @@ def fill_date_picker(project, parameter, start_date, end_date, min_date, max_dat
     dates_unchanged = start_date == global_date[list(global_date.keys())[0]] and start_date == global_date[list(global_date.keys())[1]]
     date_is_picked = start_date is not None or end_date is not None
     if parameter == None or project == None:
-        return True, None, None, None, None
+        return True, None, None, None, None, "2024-01-01"
     if (dates_unchanged and date_is_picked) or date_is_picked:
-        return False, min_date, max_date, start_date, end_date
+        return False, min_date, max_date, start_date, end_date, end_date
     min_date, max_date = get_date_range(project, parameter)
-    return False, min_date, max_date, None, None
+    return False, min_date, max_date, None, None, max_date
 
 if __name__ == "__main__":
     app.run_server(debug=True)
