@@ -88,3 +88,9 @@ body {
 .parameter-div {
     margin: 0 10px 0 10px;
 }
+
+.axis-flag-div {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 0.3em;
+}

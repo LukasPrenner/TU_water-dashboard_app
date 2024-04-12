@@ -10,15 +10,25 @@ import dash_auth
 
 USER_PASSWORD_MAPPING = {"admin": "admin"}
 
+global_data = {"parameter-1": None, "parameter-2": None, "parameter-3": None, "parameter-4": None}
+global_date = {"start-date": None, "end-date": None}
+global_set_maintenance_query = ""
+global_last_flag_set = ""
+global_flag_is_set = False
+
 engine = create_engine('postgresql://shiny:shiny@10.10.100.20/tuwien_zentrale')
 
-def retrieve_tables():
-    sql_query = "SELECT * FROM information_schema.tables WHERE table_schema not in ('pg_catalog', 'information_schema') and table_type = 'BASE TABLE'"
+def send_query_to_datbase(query):
     with engine.connect() as connection:
-        data_temp = connection.execute(text(sql_query))
+        data_temp = connection.execute(text(query))
         data = pd.DataFrame(data_temp.fetchall())
         data.columns = data_temp.keys()
         connection.commit()
+    return data
+
+def retrieve_tables():
+    sql_query = "SELECT * FROM information_schema.tables WHERE table_schema not in ('pg_catalog', 'information_schema') and table_type = 'BASE TABLE'"
+    data = send_query_to_datbase(sql_query)
     stringValA = 'tuw_'
     stringValB = '_md:'
     stringValC = 'my_dictionary'
@@ -40,8 +50,6 @@ def extract_project(table_list):
     return project_tables_dict
 
 parameter_tables = retrieve_tables()
-global_data = {"parameter-1": None, "parameter-2": None, "parameter-3": None, "parameter-4": None}
-global_date = {"start-date": None, "end-date": None}
 
 def get_parameters(parameter):
     sql_query = "SELECT * FROM "+parameter+" LIMIT 1"
@@ -107,6 +115,11 @@ app.layout = html.Div(
             className="header",
         ),
 
+    dcc.ConfirmDialog(
+        id='confirm-flagging'
+    ),
+    dcc.Store(id='flagging-output'),
+
     html.Div(
             children=[
             html.Div(
@@ -149,14 +162,19 @@ app.layout = html.Div(
                             id="parameter-picker-1",
                             className="dropdown",
                         ),
+
+                        
+                        html.Div(children=[
                         dcc.RadioItems([
-                                {'label': 'Left Axis', 'value': 'left'},
-                                {'label': 'Right Axis', 'value': 'right'}], 
-                                value='left',
-                                id="parameter-axis-1")
-                    ],
-                    className="parameter-div",
-                ),
+                            {'label': 'Left Axis', 'value': 'left'},
+                            {'label': 'Right Axis', 'value': 'right'}], 
+                            value='left',
+                            id="parameter-axis-1"),
+                            html.Button('⚑', id='flag-1'),
+                        ],className="axis-flag-div",),
+                        
+                        
+                    ],className="parameter-div",),
             html.Div(
                 children=[
                     html.Div(children="Parameter 2", className="menu-title"),
@@ -165,13 +183,17 @@ app.layout = html.Div(
                             className="dropdown",
                             disabled=True
                         ),
+
+                        html.Div(children=[
                         dcc.RadioItems([
-                                {'label': 'Left Axis', 'value': 'left', 'disabled':True},
-                                {'label': 'Right Axis', 'value': 'right', 'disabled':True}], 
-                                value='right',
-                                id="parameter-axis-2"),
-                ],
-                className="parameter-div",
+                            {'label': 'Left Axis', 'value': 'left', 'disabled':True},
+                            {'label': 'Right Axis', 'value': 'right', 'disabled':True}], 
+                            value='right',
+                            id="parameter-axis-2"),
+                            html.Button('⚑', id='flag-2'),
+                        ],className="axis-flag-div",),
+
+                ],className="parameter-div",
             ),
             html.Div(
                 children=[
@@ -181,13 +203,16 @@ app.layout = html.Div(
                             className="dropdown",
                             disabled=True
                         ),
+                        html.Div(children=[
                         dcc.RadioItems([
-                                {'label': 'Left Axis', 'value': 'left', 'disabled':True},
-                                {'label': 'Right Axis', 'value': 'right', 'disabled':True}], 
-                                value='right',
-                                id="parameter-axis-3"),
-                ],
-                className="parameter-div",
+                            {'label': 'Left Axis', 'value': 'left', 'disabled':True},
+                            {'label': 'Right Axis', 'value': 'right', 'disabled':True}], 
+                            value='right',
+                            id="parameter-axis-3"),
+                            html.Button('⚑', id='flag-3'),
+                        ],className="axis-flag-div",),
+
+                ],className="parameter-div",
             ),
             html.Div(
                 children=[
@@ -197,13 +222,16 @@ app.layout = html.Div(
                             className="dropdown",
                             disabled=True
                         ),
-                        dcc.RadioItems([
-                                {'label': 'Left Axis', 'value': 'left', 'disabled':True},
-                                {'label': 'Right Axis', 'value': 'right', 'disabled':True}], 
-                                value='right',
-                                id="parameter-axis-4"),
-                ],
-                className="parameter-div",
+                    html.Div(children=[
+                    dcc.RadioItems([
+                        {'label': 'Left Axis', 'value': 'left', 'disabled':True},
+                        {'label': 'Right Axis', 'value': 'right', 'disabled':True}], 
+                        value='right',
+                        id="parameter-axis-4"),
+                        html.Button('⚑', id='flag-4'),
+                    ],className="axis-flag-div",),
+                        
+                ],className="parameter-div",
             ),
         ],
         className="menu",
@@ -272,6 +300,22 @@ def pre_retrieve_data(project, parameter, start_date, end_date):
         return retrieve_data(project, parameter, start_date, end_date), True
     return pd.DataFrame(), False
 
+def update_global_last_flag_set(flag, is_set):
+    global global_last_flag_set
+    global global_flag_is_set
+    if is_set:
+        global_last_flag_set = flag
+        global_flag_is_set = True
+        return global_last_flag_set
+    else:
+        global_flag_is_set = False
+        return None
+
+def update_global_set_maintenance_query(query):
+    global global_set_maintenance_query
+    global_set_maintenance_query = query
+    return global_set_maintenance_query
+
 def update_global_data(index, updated_data):
     global global_data
     global_data[index] = updated_data
@@ -313,26 +357,30 @@ def set_data(project, parameter, start_date, end_date, axis, index):
     Input("parameter-axis-1", "value"),
     Input("parameter-axis-2", "value"),
     Input("parameter-axis-3", "value"),
-    Input("parameter-axis-4", "value")
+    Input("parameter-axis-4", "value"),
+    Input('flagging-output', 'data'),
 )
-def get_parameter_1_data(project, parameter_01, parameter_02, parameter_03, parameter_04, start_date, end_date, axis_01, axis_02, axis_03, axis_04):
+def update_figure(project, parameter_01, parameter_02, parameter_03, parameter_04, start_date, end_date, axis_01, axis_02, axis_03, axis_04, flag_storage):
     input_element = ctx.triggered_id
     date_range_selected = not start_date == None and not end_date == None
     axis = axis_01
     index = list(global_data.keys())[0]
     parameter = [parameter_01]
     more_than_one_parameter = False
-    if input_element == "parameter-picker-2" or input_element == "parameter-axis-2":
+    if input_element == "parameter-picker-2" or input_element == "parameter-axis-2" or flag_storage == "flag-2" and date_range_selected:
+        print("In Parameter 2")
         index = list(global_data.keys())[1]
         parameter = [parameter_02]
         axis = axis_02
         more_than_one_parameter = True
-    elif input_element == "parameter-picker-3" or input_element == "parameter-axis-3":
+    elif input_element == "parameter-picker-3" or input_element == "parameter-axis-3" or flag_storage == "flag-3" and date_range_selected:
+        print("In Parameter 3")
         index = list(global_data.keys())[2]
         parameter = [parameter_03]
         axis = axis_03
         more_than_one_parameter = True
-    elif input_element == "parameter-picker-4" or input_element == "parameter-axis-4":
+    elif input_element == "parameter-picker-4" or input_element == "parameter-axis-4" or flag_storage == "flag-4" and date_range_selected:
+        print("In Parameter 4")
         index = list(global_data.keys())[3]
         parameter = [parameter_04]
         axis = axis_04
@@ -343,6 +391,54 @@ def get_parameter_1_data(project, parameter_01, parameter_02, parameter_03, para
     return get_figure([global_data[list(global_data.keys())[0]], global_data[list(global_data.keys())[1]], global_data[list(global_data.keys())[2]], global_data[list(global_data.keys())[3]]], more_than_one_parameter)
 
 @app.callback(
+Output('confirm-flagging', 'displayed'),
+Output('confirm-flagging', 'message'),
+Input("project-picker-1", "value"),
+Input("parameter-picker-1", "value"),
+Input("parameter-picker-2", "value"),
+Input("parameter-picker-3", "value"),
+Input("parameter-picker-4", "value"),
+Input("date-range", "start_date"),
+Input("date-range", "end_date"),
+Input("flag-1", "n_clicks"),
+Input("flag-2", "n_clicks"),
+Input("flag-3", "n_clicks"),
+Input("flag-4", "n_clicks"),
+)
+def flag_data(project, parameter_01, parameter_02, parameter_03, parameter_04, start_date, end_date, flag_1, flag_2, flag_3, flag_4):
+    input_element = ctx.triggered_id
+    date_range_selected = not start_date == None and not end_date == None
+    flag_parameter_dict = {"flag-1": parameter_01, "flag-2": parameter_02, "flag-3": parameter_03, "flag-4": parameter_04}
+    intro_message = "You are about to flag the following project as 'Maintenance' in the given date range. \n\n"
+    outro_message = str(start_date) + " - " + str(end_date) + "\n\n" + "Do you want to continue?"
+    if input_element in ["flag-1","flag-2","flag-3","flag-4"]:
+        if date_range_selected:
+            message = intro_message + str(project) + str(flag_parameter_dict[input_element]) + "\n" + outro_message
+            table_name = project + "__" + flag_parameter_dict[input_element]
+            update_query = "UPDATE " + table_name + " SET mode = Maintenance WHERE timeutc BETWEEN '"+start_date+" 00:00:00' AND '"+end_date+" 23:59:59'"
+            update_global_set_maintenance_query(update_query)
+            update_global_last_flag_set(input_element, True)
+        else:
+            message = "Please select a date range first before flagging data."
+            update_global_last_flag_set(None, False)
+        return True, message
+    return False, None
+
+@app.callback(
+Output('flagging-output', 'data'),
+Input('confirm-flagging', 'submit_n_clicks'))
+def flag_data_confirmed(submit_n_clicks):
+    if submit_n_clicks and global_flag_is_set:
+        print("Sending this query to database: " + global_set_maintenance_query)
+        # send_query_to_datbase(global_set_maintenance_query)
+        return global_last_flag_set
+    
+
+@app.callback(
+Output("flag-1", "disabled"),
+Output("flag-2", "disabled"),
+Output("flag-3", "disabled"),
+Output("flag-4", "disabled"),
 Output("parameter-picker-1", "options"),
 Output("parameter-picker-2", "options"),
 Output("parameter-picker-2", "disabled"),
@@ -366,8 +462,8 @@ def update_parameter_other_parameters(project, parameter_01, parameter_02, param
     if parameter_01 == None or project == None:
         remove_from_global_data(["parameter-1","parameter-2","parameter-3","parameter-4"])
         if project == None:
-            return get_parameter_options([]), get_parameter_options([]), True, None, get_axis_options(True), get_parameter_options([]), True, None, get_axis_options(True), get_parameter_options([]), True, None, get_axis_options(True)
-        return get_parameter_options(parameter_tables[project]), get_parameter_options([]), True, None, get_axis_options(True), get_parameter_options([]), True, None, get_axis_options(True), get_parameter_options([]), True, None, get_axis_options(True)
+            return True, True, True, True, get_parameter_options([]), get_parameter_options([]), True, None, get_axis_options(True), get_parameter_options([]), True, None, get_axis_options(True), get_parameter_options([]), True, None, get_axis_options(True)
+        return True, True, True, True, get_parameter_options(parameter_tables[project]), get_parameter_options([]), True, None, get_axis_options(True), get_parameter_options([]), True, None, get_axis_options(True), get_parameter_options([]), True, None, get_axis_options(True)
     all_parameters = parameter_tables[project].copy()
     active_parameters = remove_none_values([parameter_01, parameter_02, parameter_03, parameter_04])
     parameter_01_list = get_remaining_parameters(all_parameters,active_parameters, parameter_01)
@@ -376,15 +472,15 @@ def update_parameter_other_parameters(project, parameter_01, parameter_02, param
     parameter_04_list = get_remaining_parameters(all_parameters,active_parameters, parameter_04)
     if parameter_02 == None:
         remove_from_global_data(["parameter-2","parameter-3","parameter-4"])
-        return get_parameter_options(parameter_01_list), get_parameter_options(parameter_02_list), False, parameter_02, get_axis_options(False), get_parameter_options([]), True, None, get_axis_options(True), get_parameter_options([]), True, None, get_axis_options(True)
+        return False, True, True, True, get_parameter_options(parameter_01_list), get_parameter_options(parameter_02_list), False, parameter_02, get_axis_options(False), get_parameter_options([]), True, None, get_axis_options(True), get_parameter_options([]), True, None, get_axis_options(True)
     if parameter_03 == None:
         remove_from_global_data(["parameter-3","parameter-4"])
-        return get_parameter_options(parameter_01_list), get_parameter_options(parameter_02_list), False, parameter_02, get_axis_options(False), get_parameter_options(parameter_03_list), False, parameter_03, get_axis_options(False), get_parameter_options([]), True, None, get_axis_options(True)
+        return False, False, True, True, get_parameter_options(parameter_01_list), get_parameter_options(parameter_02_list), False, parameter_02, get_axis_options(False), get_parameter_options(parameter_03_list), False, parameter_03, get_axis_options(False), get_parameter_options([]), True, None, get_axis_options(True)
     if parameter_04 == None:
         remove_from_global_data(["parameter-4"])
-        return get_parameter_options(parameter_01_list), get_parameter_options(parameter_02_list), False, parameter_02, get_axis_options(False), get_parameter_options(parameter_03_list), False, parameter_03, get_axis_options(False), get_parameter_options(parameter_04_list), False, None, get_axis_options(False)
+        return False, False, False, True, get_parameter_options(parameter_01_list), get_parameter_options(parameter_02_list), False, parameter_02, get_axis_options(False), get_parameter_options(parameter_03_list), False, parameter_03, get_axis_options(False), get_parameter_options(parameter_04_list), False, None, get_axis_options(False)
     else:
-        return get_parameter_options(parameter_01_list), get_parameter_options(parameter_02_list), False, parameter_02, get_axis_options(False), get_parameter_options(parameter_03_list), False, parameter_03, get_axis_options(False), get_parameter_options(parameter_04_list), False, parameter_04, get_axis_options(False)
+        return False, False, False, False, get_parameter_options(parameter_01_list), get_parameter_options(parameter_02_list), False, parameter_02, get_axis_options(False), get_parameter_options(parameter_03_list), False, parameter_03, get_axis_options(False), get_parameter_options(parameter_04_list), False, parameter_04, get_axis_options(False)
 
 @app.callback(
 Output("date-range", "disabled"),
